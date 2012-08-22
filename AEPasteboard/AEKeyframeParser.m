@@ -48,6 +48,44 @@
 
 #pragma mark - Parsing
 
+- (void)parseTabValue:(NSString *)value dataRow:(NSMutableArray **)dataRow
+{
+    void (^addRawData)(NSString *value) = ^(NSString *value) {
+        double rawValue = [value doubleValue];
+        NSNumber *entry = [NSNumber numberWithDouble:rawValue];
+        [*dataRow addObject:entry];
+    };
+
+    if (self.expectKey)
+    {
+        [self setValue:value forKey:self.expectKey];
+        self.expectKey = nil;
+    }
+    else if (self.fetchingRawData)
+    {
+        addRawData(value);
+    }
+    else
+    {
+        self.expectKey = [self expectKeyForEntry:value];
+        if ([self.expectKey isEqualToString:@"##HEADING##"])
+        {
+            [[self.rawData objectAtIndex:0] addObject:[value copy]];
+            self.expectKey = nil;
+        }
+        else if (self.fetchingRawData)
+        {
+            // Make sure we get the very first entry also
+            if (!*dataRow)
+            {
+                *dataRow = [NSMutableArray array];
+                [self.rawData addObject:*dataRow];
+                [self parseTabValue:value dataRow:dataRow];
+            }
+        }
+    }
+}
+
 - (void)parseLine:(NSString *)line
 {
     NSUInteger rawCount = 0;
@@ -62,12 +100,6 @@
         [self.rawData addObject:rawDataRow];
     }
 
-    void (^addRawData)(NSString *value) = ^(NSString *value) {
-        double rawValue = [value doubleValue];
-        NSNumber *entry = [NSNumber numberWithDouble:rawValue];
-        [rawDataRow addObject:entry];
-    };
-
     NSScanner *tabScanner = [NSScanner scannerWithString:line];
     while (![tabScanner isAtEnd])
     {
@@ -75,36 +107,11 @@
         [tabScanner scanUpToString:@"\t" intoString:&tabStop];
         if (tabStop)
         {
-            if (self.expectKey)
-            {
-                [self setValue:tabStop forKey:self.expectKey];
-                self.expectKey = nil;
-            }
-            else if (self.fetchingRawData)
-            {
-                addRawData(tabStop);
-            }
-            else
-            {
-                self.expectKey = [self expectKeyForEntry:tabStop];
-                if ([self.expectKey isEqualToString:@"##HEADING##"])
-                {
-                    [[self.rawData objectAtIndex:0] addObject:[tabStop copy]];
-                    self.expectKey = nil;
-                }
-                else if (self.fetchingRawData)
-                {
-                    // Make sure we get the very first entry also
-                    if (!rawDataRow)
-                    {
-                        rawDataRow = [NSMutableArray array];
-                        [self.rawData addObject:rawDataRow];
-                    }
-                    addRawData(tabStop);
-                }
-            }
+            [self parseTabValue:tabStop dataRow:&rawDataRow];
         }
     }
+
+    NSLog(@"%@", rawDataRow);
 
     if (self.fetchingRawData)
     {
@@ -172,6 +179,7 @@
 
     // Get headings
     EXPECT_HEADING(@"Position", 4);
+    EXPECT_HEADING(@"Scale", 4);
 
     // Assume we have all headings by now
     self.fetchingRawData = YES;
@@ -197,6 +205,9 @@
                     [bSelf parse];
                     bSelf.parsing = NO;
                 }];
+
+                [[AEKeyframeParser sharedParsingQueue] waitUntilAllOperationsAreFinished];
+                NSLog(@"%@", self.rawData);
             }
         }
     }
