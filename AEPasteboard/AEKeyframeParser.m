@@ -50,11 +50,14 @@
 
 - (void)parseTabValue:(NSString *)value dataRow:(NSMutableArray **)dataRow
 {
-    void (^addRawData)(NSString *value) = ^(NSString *value) {
-        double rawValue = [value doubleValue];
-        NSNumber *entry = [NSNumber numberWithDouble:rawValue];
-        [*dataRow addObject:entry];
-    };
+    // Make sure we get no white space in.
+    value = [value stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+    if (!value || value.length < 1)
+    {
+        printf("attempted to parse empty value\n");
+        return;
+    }
 
     if (self.expectKey)
     {
@@ -63,7 +66,9 @@
     }
     else if (self.fetchingRawData)
     {
-        addRawData(value);
+        double rawValue = [value doubleValue];
+        NSNumber *entry = [NSNumber numberWithDouble:rawValue];
+        [*dataRow addObject:entry];
     }
     else
     {
@@ -76,7 +81,7 @@
         else if (self.fetchingRawData)
         {
             // Make sure we get the very first entry also
-            if (!*dataRow)
+            if (!(*dataRow))
             {
                 *dataRow = [NSMutableArray array];
                 [self.rawData addObject:*dataRow];
@@ -115,6 +120,12 @@
 
     if (self.fetchingRawData)
     {
+        if (rawCount < 1)
+        {
+            // Make sure we've fetched the count
+            rawCount = [[self.rawData objectAtIndex:0] count];
+        }
+
         if (rawDataRow.count < rawCount)
         {
             [self.rawData removeLastObject];
