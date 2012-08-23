@@ -189,8 +189,11 @@
     EXPECT_KEY(@"End of Keyframe Data", nil);
 
     // Get headings
+    EXPECT_HEADING(@"Anchor Point", 4);
     EXPECT_HEADING(@"Position", 4);
     EXPECT_HEADING(@"Scale", 4);
+    EXPECT_HEADING(@"Rotation", 2);
+    EXPECT_HEADING(@"Opacity", 2);
 
     // Assume we have all headings by now
     self.fetchingRawData = YES;
