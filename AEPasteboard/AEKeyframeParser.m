@@ -46,6 +46,53 @@
     self.rawData = nil;
 }
 
+#pragma mark - Data manipulation
+
+- (void)convertFramesToTime
+{
+    // Make sure we get exclusive access to the data
+    self.parsing = YES;
+
+    __block typeof(self) bSelf = self;
+    [[AEKeyframeParser sharedParsingQueue] addOperationWithBlock:^{
+        double frameTime = 1.0f / bSelf.unitsPerSecond;
+        BOOL firstRow = YES;
+        for (NSMutableArray *row in bSelf.rawData)
+        {
+            if (firstRow)
+            {
+                firstRow = NO;
+                // Check that we have frame on position one
+                if (![[row objectAtIndex:0] isEqualToString:@"Frame"])
+                {
+                    printf("Unable to convert frames - Expected column 1 to be frames.\n");
+                    break;
+                }
+                else
+                {
+                    [row replaceObjectAtIndex:0 withObject:@"Time (Sec)"];
+                    continue;
+                }
+            }
+
+            double frameNo = [[row objectAtIndex:0] doubleValue];
+            double time = frameNo * frameTime;
+            [row replaceObjectAtIndex:0 withObject:[NSNumber numberWithDouble:time]];
+        }
+        self.parsing = NO;
+    }];
+}
+
+- (void)convertRowsToDeltas:(BOOL)keepFirstValue
+{
+
+}
+
+- (void)flipY:(CGSize)compSize
+{
+    
+}
+
 #pragma mark - Parsing
 
 - (void)parseTabValue:(NSString *)value dataRow:(NSMutableArray **)dataRow
@@ -116,8 +163,6 @@
         }
     }
 
-    NSLog(@"%@", rawDataRow);
-
     if (self.fetchingRawData)
     {
         if (rawCount < 1)
@@ -153,8 +198,6 @@
             [self parseLine:line];
         }
     }
-
-    NSLog(@"Done parsing");
 }
 
 #pragma mark - Expects
@@ -220,6 +263,9 @@
                     bSelf.parsing = NO;
                 }];
 
+                // Debug
+                [[AEKeyframeParser sharedParsingQueue] waitUntilAllOperationsAreFinished];
+                [self convertFramesToTime];
                 [[AEKeyframeParser sharedParsingQueue] waitUntilAllOperationsAreFinished];
                 NSLog(@"%@", self.rawData);
             }

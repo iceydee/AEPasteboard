@@ -10,6 +10,10 @@
 
 @interface AEKeyframeParser : NSObject
 
+- (void)convertFramesToTime;
+- (void)convertRowsToDeltas:(BOOL)keepFirstValue;
+- (void)flipY:(CGSize)compSize;
+
 @property (assign) BOOL parsing;
 @property (nonatomic, copy) NSString *heading;
 @property (nonatomic, assign) double unitsPerSecond;
