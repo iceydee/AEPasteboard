@@ -48,12 +48,79 @@
 
 #pragma mark - Data manipulation
 
-- (void)convertFramesToTime
+- (void)queueManipulationBlock:(ManipulationBlock)manipulationBlock
 {
+    __block typeof(self) bSelf = self;
+    if (self.parsing)
+    {
+        printf("Currently parsing - won't try to manipulate the data.\n");
+        return;
+    }
+
     // Make sure we get exclusive access to the data
     self.parsing = YES;
 
+    ManipulationBlock mBlock = [manipulationBlock copy];
+    [[AEKeyframeParser sharedParsingQueue] addOperationWithBlock:^{
+        NSMutableArray *firstRow = nil;
+        NSMutableArray *previousRow = nil;
+        NSUInteger index = 0;
+        BOOL shouldBreak = NO;
+        for (NSMutableArray *row in bSelf.rawData)
+        {
+            if (!firstRow)
+            {
+                firstRow = row;
+                continue;
+            }
+
+            mBlock(firstRow, row, previousRow, index, &shouldBreak);
+            if (shouldBreak)
+            {
+                break;
+            }
+            index++;
+            previousRow = row;
+        }
+        self.parsing = NO;
+    }];
+}
+
+- (void)convertFramesToTime
+{
+    double frameTime = 1.0f / self.unitsPerSecond;
+    __block BOOL hasCheckedHeading = NO;
+    [self queueManipulationBlock:^(NSMutableArray *heading, NSMutableArray *row, NSMutableArray *previousRow, NSUInteger index, BOOL *shouldBreak) {
+        if (!hasCheckedHeading)
+        {
+            hasCheckedHeading = YES;
+            
+            // Check that we have frame on first column
+            if (![[heading objectAtIndex:0] isEqualToString:@"Frame"])
+            {
+                printf("Unable to convert frames - Expected column 1 to be frames.\n");
+                *shouldBreak = YES;
+                return;
+            }
+            else
+            {
+                [heading replaceObjectAtIndex:0 withObject:@"Time (Sec)"];
+            }
+        }
+
+        
+    }];
+
     __block typeof(self) bSelf = self;
+    if (self.parsing)
+    {
+        printf("Currently parsing - won't try to manipulate the data.\n");
+        return;
+    }
+
+    // Make sure we get exclusive access to the data
+    self.parsing = YES;
+
     [[AEKeyframeParser sharedParsingQueue] addOperationWithBlock:^{
         double frameTime = 1.0f / bSelf.unitsPerSecond;
         BOOL firstRow = YES;
@@ -85,7 +152,20 @@
 
 - (void)convertRowsToDeltas:(BOOL)keepFirstValue
 {
+    __block typeof(self) bSelf = self;
 
+    if (self.parsing)
+    {
+        printf("Already parsing, will not try to manipulate data.\n");
+        return;
+    }
+
+    // Make sure we get exclusive access to the data
+    self.parsing = YES;
+
+    [[AEKeyframeParser sharedParsingQueue] addOperationWithBlock:^{
+        self.parsing = NO;
+    }];
 }
 
 - (void)flipY:(CGSize)compSize

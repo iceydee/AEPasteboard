@@ -8,6 +8,8 @@
 
 #import <Foundation/Foundation.h>
 
+typedef void (^ManipulationBlock)(NSMutableArray *heading, NSMutableArray *row, NSMutableArray *previousRow, NSUInteger index, BOOL *shouldBreak);
+
 @interface AEKeyframeParser : NSObject
 
 - (void)convertFramesToTime;
